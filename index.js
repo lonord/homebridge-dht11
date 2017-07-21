@@ -1,3 +1,5 @@
+const fetch = require('isomorphic-fetch')
+
 var Accessory, Service, Characteristic, UUIDGen
 
 const TEMPERATURE_SENSOR_NAME = 'sensor-temperature'
@@ -25,6 +27,10 @@ class Sensor {
 		if (!config.url) {
 			throw new Error('Sensor url is required in config.json')
 		}
+		this.timer = setInterval(() => {
+			this._fetchSensorData(config.url)
+		}, 30 * 1000)
+		this._fetchSensorData(config.url)
 		this.accessories = []
 
 		if (api) {
@@ -72,11 +78,11 @@ class Sensor {
 	}
 
 	getTemperature() {
-		return 29.2
+		return this.sensorData && this.sensorData.temp || 0
 	}
 
 	getHumidity() {
-		return 47
+		return this.sensorData && this.sensorData.hum || 0
 	}
 
 	_configureTempAccessory(accessory) {
@@ -107,5 +113,18 @@ class Sensor {
 					callback(null, this.getHumidity())
 				})
 		}
+	}
+
+	_fetchSensorData(url) {
+		fetch(url).then(response => {
+			if (response.status < 200 || response.status >= 300) {
+				throw new Error('Server error')
+			}
+			return response.json()
+		}).then(data => {
+			this.sensorData = data
+		}).catch(err => {
+			this.log(`Fetch sensor data error: ${err.message || err}`)
+		})
 	}
 }
